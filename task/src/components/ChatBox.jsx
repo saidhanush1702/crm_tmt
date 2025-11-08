@@ -12,26 +12,40 @@ const ChatBox = ({ user, project }) => {
 
     const fetchMessages = async () => {
       const res = await axios.get(`/messages/${project._id}`);
-      setMessages(res.data);
+
+      // Normalize IDs and sender names
+      const normalized = res.data.map((m) => ({
+        ...m,
+        senderId: m.senderId?._id || m.senderId,
+        senderName: m.senderId?.name || m.senderName || "Unknown",
+      }));
+      setMessages(normalized);
     };
 
     fetchMessages();
     socket.emit("joinProject", project._id);
 
+    // Listen for new messages
     socket.on("receiveMessage", (msg) => {
-      if (msg.projectId === project._id) {
-        setMessages((prev) => [...prev, msg]);
+      const formatted = {
+        ...msg,
+        senderId: msg.senderId?._id || msg.senderId,
+        senderName: msg.senderId?.name || msg.senderName || "Unknown",
+      };
+      if (formatted.projectId === project._id) {
+        setMessages((prev) => [...prev, formatted]);
       }
     });
 
     return () => socket.off("receiveMessage");
   }, [project]);
 
-  // Auto-scroll to bottom when new messages come
+  // Auto-scroll when messages update
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Send a message
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
@@ -55,41 +69,71 @@ const ChatBox = ({ user, project }) => {
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
-          <p className="text-center text-gray-500 mt-20">No messages yet...</p>
+          <p className="text-center text-gray-500 mt-20">
+            No messages yet...
+          </p>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg._id}
-              className={`p-2 rounded-md max-w-xl wrap-break-word ${
-                msg.senderId === user.id
-                  ? "bg-blue-600 text-white ml-auto"
-                  : "bg-gray-200 text-gray-800"
-              }`}
-            >
-              <p className="whitespace-pre-wrap">
-                {msg.message.split(" ").map((word, i) =>
-                  word.startsWith("http") ? (
-                    <a
-                      key={i}
-                      href={word}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline text-yellow-200"
-                    >
-                      {word}
-                    </a>
-                  ) : (
-                    " " + word
-                  )
-                )}
-              </p>
-              <span className="text-xs block text-right opacity-75">
-                {new Date(msg.timestamp).toLocaleTimeString()}
-              </span>
-            </div>
-          ))
+          messages.map((msg) => {
+            const isMine =
+              msg.senderId?.toString() === user.id?.toString();
+
+            return (
+              <div
+                key={msg._id}
+                className={`p-2 rounded-md max-w-xl wrap-break-word ${
+                  isMine
+                    ? "bg-blue-600 text-white ml-auto"
+                    : "bg-gray-200 text-gray-900"
+                }`}
+              >
+                {/* Sender Name */}
+                <p
+                  className={`text-xs font-semibold mb-1 ${
+                    isMine
+                      ? "text-gray-800 text-left"
+                      : "text-blue-700 text-left"
+                  }`}
+                >
+                  {msg.senderName || (isMine ? "You" : "Unknown")}
+                </p>
+
+                {/* Message Text */}
+                <p className="whitespace-pre-wrap">
+                  {msg.message.split(" ").map((word, i) =>
+                    word.startsWith("http") ? (
+                      <a
+                        key={i}
+                        href={word}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`underline ${
+                          isMine ? "text-yellow-200" : "text-blue-600"
+                        }`}
+                      >
+                        {word}
+                      </a>
+                    ) : (
+                      " " + word
+                    )
+                  )}
+                </p>
+
+                {/* Timestamp */}
+                <span
+                  className={`text-xs block mt-1 opacity-70 ${
+                    isMine ? "text-right" : "text-left"
+                  }`}
+                >
+                  {new Date(msg.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            );
+          })
         )}
         <div ref={chatEndRef}></div>
       </div>

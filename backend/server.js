@@ -4,22 +4,25 @@ import { Server } from "socket.io";
 import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/db.js";
-import userRoutes from "./routes/userRoutes.js";
-
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 // Models
 import Message from "./models/Message.js";
+import Project from "./models/Project.js";
+import User from "./models/User.js";
 
 dotenv.config();
 connectDB();
 
 const app = express();
 const server = http.createServer(app);
+
+// Socket.IO instance
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -27,55 +30,85 @@ const io = new Server(server, {
   },
 });
 
-// Middlewares
+// ---------- Middlewares ----------
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// ---------- API Routes ----------
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
 
-// Root route
+// Root test route
 app.get("/", (req, res) => {
-  res.send("Task Manager API running successfully");
+  res.send("✅ Task Manager API running successfully");
 });
 
-// Socket.IO setup
+// ---------- SOCKET.IO Logic ----------
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log(`⚡ User connected: ${socket.id}`);
 
-  // Join project room
+  // Join a project room
   socket.on("joinProject", (projectId) => {
+    if (!projectId) return;
     socket.join(projectId);
-    console.log(`User ${socket.id} joined project room ${projectId}`);
+    console.log(`📁 Socket ${socket.id} joined project room ${projectId}`);
   });
 
   // Handle sending messages
   socket.on("sendMessage", async (msg) => {
     try {
+      const { projectId, senderId, message } = msg;
+
+      if (!projectId || !senderId || !message) return;
+
+      // Validate project & membership
+      const project = await Project.findById(projectId);
+      if (!project) return console.log("❌ Project not found");
+
+      const isMember = project.members.some(
+        (id) => id.toString() === senderId.toString()
+      );
+
+      if (!isMember) {
+        console.log(`❌ Sender ${senderId} not part of project ${projectId}`);
+        return;
+      }
+
+      // Find sender info
+      const sender = await User.findById(senderId);
+      if (!sender) return console.log("❌ Sender not found");
+
+      // Save message
       const newMsg = await Message.create({
-        projectId: msg.projectId,
-        senderId: msg.senderId,
-        message: msg.message,
+        projectId,
+        senderId,
+        message,
       });
 
-      // Emit message to all clients in that project room
-      io.to(msg.projectId).emit("receiveMessage", newMsg);
+      // Populate message object with sender name
+      const fullMsg = {
+        ...newMsg.toObject(),
+        senderName: sender.name,
+      };
+
+      // Emit message to all members in that project room
+      io.to(projectId).emit("receiveMessage", fullMsg);
+      console.log(`💬 [${projectId}] ${sender.name}: ${message}`);
     } catch (err) {
-      console.error("Error saving message:", err.message);
+      console.error("⚠️ Error handling sendMessage:", err.message);
     }
   });
 
-  // Handle disconnect
+  // Handle user disconnect
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    console.log(`❌ User disconnected: ${socket.id}`);
   });
 });
 
-// Start server
+// ---------- Start Server ----------
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}`)
+  console.log(`🚀 Server running on http://localhost:${PORT}`)
 );

@@ -3,8 +3,7 @@ import axios from "../utils/axiosInstance";
 import { AuthContext } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import ProjectCard from "../components/ProjectCard";
-// (Optional: For future admin chat viewing)
-// import ChatBox from "../components/ChatBox";
+import ChatBox from "../components/ChatBox";
 
 const AdminDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -13,6 +12,7 @@ const AdminDashboard = () => {
   const [newIntern, setNewIntern] = useState({ name: "", email: "", password: "" });
   const [newProject, setNewProject] = useState({ name: "", description: "" });
   const [assignData, setAssignData] = useState({ projectId: "", memberIds: [] });
+  const [selectedProject, setSelectedProject] = useState(null); // 👈 new state for chat selection
 
   // Fetch all projects and interns
   const fetchData = async () => {
@@ -58,12 +58,31 @@ const AdminDashboard = () => {
     }
   };
 
-  // Assign members
+  // Handle project selection for checkbox assignment
+  const handleProjectSelect = (projectId) => {
+    const selected = projects.find((p) => p._id === projectId);
+    const memberIds = selected ? selected.members.map((m) => m._id) : [];
+    setAssignData({ projectId, memberIds });
+  };
+
+  // Toggle intern checkbox
+  const handleCheckboxChange = (internId) => {
+    setAssignData((prev) => {
+      const isSelected = prev.memberIds.includes(internId);
+      const updatedIds = isSelected
+        ? prev.memberIds.filter((id) => id !== internId)
+        : [...prev.memberIds, internId];
+      return { ...prev, memberIds: updatedIds };
+    });
+  };
+
+  // Assign members to project
   const handleAssign = async (e) => {
     e.preventDefault();
+    if (!assignData.projectId) return alert("Please select a project first");
     try {
       await axios.put("/projects/assign", assignData);
-      alert("✅ Members assigned successfully!");
+      alert("✅ Members updated successfully!");
       setAssignData({ projectId: "", memberIds: [] });
       fetchData();
     } catch (err) {
@@ -71,13 +90,23 @@ const AdminDashboard = () => {
     }
   };
 
+  // 👇 Handle project click for chat (only if admin is a member)
+  const handleProjectClick = (project) => {
+    const isAdminMember = project.members.some((m) => m._id === user.id);
+    if (isAdminMember) {
+      setSelectedProject(project);
+    } else {
+      alert("You are not a member of this project. Join to view chat.");
+    }
+  };
+
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 min-h-screen flex flex-col">
       {/* Navbar */}
       <Navbar title="Admin Dashboard" />
 
       {/* Page content */}
-      <div className="p-6 space-y-6">
+      <div className="p-6 flex-1 overflow-y-auto space-y-6">
         {/* Section 1 - Add Intern */}
         <div className="bg-white p-4 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold mb-2">Add New Intern</h2>
@@ -145,14 +174,13 @@ const AdminDashboard = () => {
 
         {/* Section 3 - Assign Members */}
         <div className="bg-white p-4 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-2">Assign Interns to Project</h2>
-          <form onSubmit={handleAssign} className="grid grid-cols-3 gap-2">
+          <h2 className="text-xl font-semibold mb-4">Assign Interns to Project</h2>
+
+          <div className="mb-4">
             <select
-              className="border p-2 rounded"
+              className="border p-2 rounded w-full"
               value={assignData.projectId}
-              onChange={(e) =>
-                setAssignData({ ...assignData, projectId: e.target.value })
-              }
+              onChange={(e) => handleProjectSelect(e.target.value)}
             >
               <option value="">Select Project</option>
               {projects.map((p) => (
@@ -161,32 +189,33 @@ const AdminDashboard = () => {
                 </option>
               ))}
             </select>
+          </div>
 
-            <select
-              multiple
-              className="border p-2 rounded h-24"
-              value={assignData.memberIds}
-              onChange={(e) =>
-                setAssignData({
-                  ...assignData,
-                  memberIds: Array.from(e.target.selectedOptions, (opt) => opt.value),
-                })
-              }
-            >
-              {interns.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="submit"
-              className="bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600"
-            >
-              Assign Members
-            </button>
-          </form>
+          {assignData.projectId && (
+            <form onSubmit={handleAssign}>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+                {interns.map((intern) => (
+                  <label
+                    key={intern._id}
+                    className="flex items-center gap-2 border p-2 rounded cursor-pointer hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={assignData.memberIds.includes(intern._id)}
+                      onChange={() => handleCheckboxChange(intern._id)}
+                    />
+                    <span>{intern.name}</span>
+                  </label>
+                ))}
+              </div>
+              <button
+                type="submit"
+                className="bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600"
+              >
+                Save Changes
+              </button>
+            </form>
+          )}
         </div>
 
         {/* Section 4 - All Projects */}
@@ -194,17 +223,22 @@ const AdminDashboard = () => {
           <h2 className="text-xl font-semibold mb-4">All Projects</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.map((p) => (
-              <ProjectCard key={p._id} project={p} />
+              <div key={p._id} onClick={() => handleProjectClick(p)}>
+                <ProjectCard project={p} />
+              </div>
             ))}
           </div>
         </div>
 
-        {/* (Optional future section)
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-2">Project Chat (coming soon)</h2>
-          <ChatBox user={user} project={selectedProject} />
-        </div>
-        */}
+        {/* Section 5 - ChatBox for Selected Project */}
+        {selectedProject && (
+          <div className="bg-white p-4 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold mb-2">
+              Chat: {selectedProject.name}
+            </h2>
+            <ChatBox user={user} project={selectedProject} />
+          </div>
+        )}
       </div>
     </div>
   );
