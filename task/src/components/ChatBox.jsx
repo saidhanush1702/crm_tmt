@@ -8,37 +8,40 @@ const ChatBox = ({ user, project }) => {
   const chatEndRef = useRef(null);
 
   useEffect(() => {
-    if (!project?._id) return;
+  if (!project?._id) return;
 
-    const fetchMessages = async () => {
-      const res = await axios.get(`/messages/${project._id}`);
+  // ✅ Ensure socket connection for admin too
+  if (!socket.connected) {
+    socket.connect();
+  }
 
-      // Normalize IDs and sender names
-      const normalized = res.data.map((m) => ({
-        ...m,
-        senderId: m.senderId?._id || m.senderId,
-        senderName: m.senderId?.name || m.senderName || "Unknown",
-      }));
-      setMessages(normalized);
+  const fetchMessages = async () => {
+    const res = await axios.get(`/messages/${project._id}`);
+    const normalized = res.data.map((m) => ({
+      ...m,
+      senderId: m.senderId?._id || m.senderId,
+      senderName: m.senderId?.name || m.senderName || "Unknown",
+    }));
+    setMessages(normalized);
+  };
+
+  fetchMessages();
+  socket.emit("joinProject", project._id);
+
+  socket.on("receiveMessage", (msg) => {
+    const formatted = {
+      ...msg,
+      senderId: msg.senderId?._id || msg.senderId,
+      senderName: msg.senderId?.name || msg.senderName || "Unknown",
     };
+    if (formatted.projectId === project._id) {
+      setMessages((prev) => [...prev, formatted]);
+    }
+  });
 
-    fetchMessages();
-    socket.emit("joinProject", project._id);
+  return () => socket.off("receiveMessage");
+}, [project]);
 
-    // Listen for new messages
-    socket.on("receiveMessage", (msg) => {
-      const formatted = {
-        ...msg,
-        senderId: msg.senderId?._id || msg.senderId,
-        senderName: msg.senderId?.name || msg.senderName || "Unknown",
-      };
-      if (formatted.projectId === project._id) {
-        setMessages((prev) => [...prev, formatted]);
-      }
-    });
-
-    return () => socket.off("receiveMessage");
-  }, [project]);
 
   // Auto-scroll when messages update
   useEffect(() => {
@@ -52,7 +55,7 @@ const ChatBox = ({ user, project }) => {
 
     const msgData = {
       projectId: project._id,
-      senderId: user.id,
+      senderId: user._id || user.id,
       message: newMessage.trim(),
     };
 
@@ -77,24 +80,22 @@ const ChatBox = ({ user, project }) => {
         ) : (
           messages.map((msg) => {
             const isMine =
-              msg.senderId?.toString() === user.id?.toString();
+              msg.senderId?.toString() === (user._id || user.id)?.toString();
 
             return (
               <div
                 key={msg._id}
-                className={`p-2 rounded-md max-w-xl wrap-break-word ${
-                  isMine
+                className={`p-2 rounded-md max-w-xl wrap-break-word ${isMine
                     ? "bg-blue-600 text-white ml-auto"
                     : "bg-gray-200 text-gray-900"
-                }`}
+                  }`}
               >
                 {/* Sender Name */}
                 <p
-                  className={`text-xs font-semibold mb-1 ${
-                    isMine
+                  className={`text-xs font-semibold mb-1 ${isMine
                       ? "text-gray-800 text-left"
                       : "text-blue-700 text-left"
-                  }`}
+                    }`}
                 >
                   {msg.senderName || (isMine ? "You" : "Unknown")}
                 </p>
@@ -108,9 +109,8 @@ const ChatBox = ({ user, project }) => {
                         href={word}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`underline ${
-                          isMine ? "text-yellow-200" : "text-blue-600"
-                        }`}
+                        className={`underline ${isMine ? "text-yellow-200" : "text-blue-600"
+                          }`}
                       >
                         {word}
                       </a>
@@ -122,9 +122,8 @@ const ChatBox = ({ user, project }) => {
 
                 {/* Timestamp */}
                 <span
-                  className={`text-xs block mt-1 opacity-70 ${
-                    isMine ? "text-right" : "text-left"
-                  }`}
+                  className={`text-xs block mt-1 opacity-70 ${isMine ? "text-right" : "text-left"
+                    }`}
                 >
                   {new Date(msg.timestamp).toLocaleTimeString([], {
                     hour: "2-digit",
