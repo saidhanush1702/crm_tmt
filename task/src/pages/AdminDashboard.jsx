@@ -1,106 +1,152 @@
-  import React, { useState, useContext } from "react";
-  import { AuthContext } from "../context/AuthContext";
-  import InternsPanel from "../components/admin/InternsPanel";
-  import ProjectsPanel from "../components/admin/ProjectsPanel";
-  import ChatsPanel from "../components/admin/ChatsPanel";
-  import { Menu, X } from "lucide-react"; // icons for mobile nav
+import React, { useState, useContext } from "react";
+import { Menu, X, Users, FolderKanban, MessageSquare, LogOut } from "lucide-react";
+import { AuthContext } from "../context/AuthContext"; // ✅ use your real auth context
+import InternsPanel from "../components/admin/InternsPanel.jsx";
+import ProjectsPanel from "../components/admin/ProjectsPanel.jsx";
+import ChatsPanel from "../components/admin/ChatsPanel.jsx";
 
-  export default function AdminDashboard() {
-    const { user, logout } = useContext(AuthContext);
-    const [activeTab, setActiveTab] = useState("interns");
-    const [menuOpen, setMenuOpen] = useState(false);
 
-    const handleTabChange = (tab) => {
-      setActiveTab(tab);
-      setMenuOpen(false); // auto close on mobile
-    };
 
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        {/* Navbar */}
-        <header className="bg-white shadow sticky top-0 z-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              {/* Left: Logo + Nav */}
-              <div className="flex items-center gap-4">
-                <div className="text-lg sm:text-xl font-bold text-gray-800 whitespace-nowrap">
-                  Task Manager — Admin
-                </div>
+/**
+ * @component NavLink
+ * A reusable sidebar navigation button.
+ */
+function NavLink({ children, icon: Icon, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${active
+          ? "bg-blue-600 text-white shadow-lg"
+          : "text-slate-300 hover:bg-slate-700 hover:text-white transform hover:translate-x-1"
+        }`}
+    >
+      <Icon size={18} className="mr-3 shrink-0" />
+      <span className="truncate">{children}</span>
+    </button>
+  );
+}
 
-                {/* Desktop Nav */}
-                <nav className="hidden md:flex items-center gap-2">
-                  <TabBtn active={activeTab === "interns"} onClick={() => handleTabChange("interns")}>
-                    Interns
-                  </TabBtn>
-                  <TabBtn active={activeTab === "projects"} onClick={() => handleTabChange("projects")}>
-                    Projects
-                  </TabBtn>
-                  <TabBtn active={activeTab === "chats"} onClick={() => handleTabChange("chats")}>
-                    Chats
-                  </TabBtn>
-                </nav>
-              </div>
+/**
+ * @component AdminDashboard
+ * Main admin layout using real authentication context.
+ */
+export default function AdminDashboard() {
+  const { user, logout } = useContext(AuthContext); // ✅ now using real backend user
+  const [activeTab, setActiveTab] = useState("interns");
+  const [menuOpen, setMenuOpen] = useState(false);
 
-              {/* Right: User + Logout */}
-              <div className="flex items-center gap-3">
-                <span className="hidden sm:block text-sm text-gray-700 truncate max-w-[100px]">
-                  {user?.name}
-                </span>
-                <button
-                  onClick={logout}
-                  className="text-sm bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
-                >
-                  Logout
-                </button>
+  // ✅ fallback if user data is missing temporarily
+  const currentUser = {
+    _id: user?._id || "690e23bad4dc5bbe84e9e44d", // ✅ always fallback to real admin id
+    name: user?.name || "Main Admin",
+    email: user?.email || "admin@example.com",
+    token: user?.token || "admin-token-123",
+    role: user?.role || "admin",
+  };
 
-                {/* Mobile Menu Toggle */}
-                <button
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  className="md:hidden text-gray-700 focus:outline-none"
-                >
-                  {menuOpen ? <X size={22} /> : <Menu size={22} />}
-                </button>
-              </div>
+
+  const tabs = [
+    { id: "interns", label: "Interns", icon: Users },
+    { id: "projects", label: "Projects", icon: FolderKanban },
+    { id: "chats", label: "Chats", icon: MessageSquare },
+  ];
+
+  const getTabTitle = () =>
+    tabs.find((tab) => tab.id === activeTab)?.label || "Dashboard";
+
+  return (
+    <div className="flex min-h-screen bg-slate-100 font-sans">
+      {/* Overlay for mobile menu */}
+      {menuOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-white p-4 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between h-16 border-b border-slate-700 pb-4">
+          <span className="text-xl font-bold text-white whitespace-nowrap">
+            Task Manager
+          </span>
+          <button
+            onClick={() => setMenuOpen(false)}
+            className="md:hidden text-slate-300 hover:text-white"
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 mt-6 space-y-2">
+          {tabs.map((tab) => (
+            <NavLink
+              key={tab.id}
+              icon={tab.icon}
+              active={activeTab === tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setMenuOpen(false);
+              }}
+            >
+              {tab.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div className="mt-auto border-t border-slate-700 pt-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-semibold">
+              {user?.name?.[0]?.toUpperCase() || "A"}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-100 truncate">
+                {user?.name}
+              </p>
+              <p className="text-xs text-slate-400 truncate">
+                {user?.email}
+              </p>
             </div>
           </div>
+          <button
+            onClick={logout}
+            className="flex items-center justify-center w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors duration-200"
+          >
+            <LogOut size={16} className="mr-2" />
+            Logout
+          </button>
+        </div>
+      </aside>
 
-          {/* Mobile Nav */}
-          {menuOpen && (
-            <div className="md:hidden bg-gray-100 border-t border-gray-200 flex flex-col items-start px-4 py-2 space-y-2 animate-slideDown">
-              <TabBtn active={activeTab === "interns"} onClick={() => handleTabChange("interns")}>
-                Interns
-              </TabBtn>
-              <TabBtn active={activeTab === "projects"} onClick={() => handleTabChange("projects")}>
-                Projects
-              </TabBtn>
-              <TabBtn active={activeTab === "chats"} onClick={() => handleTabChange("chats")}>
-                Chats
-              </TabBtn>
-            </div>
-          )}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col md:ml-64">
+        {/* Topbar */}
+        <header className="sticky top-0 z-10 bg-white shadow-sm h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="md:hidden text-gray-700"
+          >
+            <Menu size={22} />
+          </button>
+          <h1 className="text-xl font-semibold text-gray-800 ml-2 md:ml-0">
+            {getTabTitle()}
+          </h1>
+          <div className="w-8 md:hidden"></div>
         </header>
 
-        {/* Main Tabs */}
-        <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full overflow-y-auto">
+        {/* Panels */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {activeTab === "interns" && <InternsPanel />}
           {activeTab === "projects" && <ProjectsPanel />}
           {activeTab === "chats" && <ChatsPanel user={user} />}
         </main>
       </div>
-    );
-  }
-
-  function TabBtn({ children, active, onClick }) {
-    return (
-      <button
-        onClick={onClick}
-        className={`px-3 py-1.5 rounded-md text-sm font-medium transition w-full md:w-auto text-left ${
-          active
-            ? "bg-blue-600 text-white shadow-sm"
-            : "text-gray-700 hover:bg-gray-200"
-        }`}
-      >
-        {children}
-      </button>
-    );
-  }
+    </div>
+  );
+}
