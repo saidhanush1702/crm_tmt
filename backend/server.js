@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/db.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
@@ -22,7 +23,7 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-// Socket.IO instance
+// Socket.IO setup
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -39,8 +40,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/upload", uploadRoutes); // for file uploads
 
-// Root test route
+// Root route
 app.get("/", (req, res) => {
   res.send("✅ Task Manager API running successfully");
 });
@@ -49,59 +51,68 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   console.log(`⚡ User connected: ${socket.id}`);
 
-  // Join a project room
+  // Join project room
   socket.on("joinProject", (projectId) => {
     if (!projectId) return;
     socket.join(projectId);
     console.log(`📁 Socket ${socket.id} joined project room ${projectId}`);
   });
 
-  // Handle sending messages
+  // Handle sending messages (text + file)
   socket.on("sendMessage", async (msg) => {
     try {
-      const { projectId, senderId, message } = msg;
+      const { projectId, senderId, message, fileUrl, fileType, originalName } = msg;
 
-      if (!projectId || !senderId || !message) return;
+      // ✅ Validate minimal content
+      if (!projectId || !senderId || (!message && !fileUrl)) {
+        console.log("❌ Invalid message: missing content or file");
+        return;
+      }
 
-      // Validate project & membership
+      // Validate project and membership
       const project = await Project.findById(projectId);
       if (!project) return console.log("❌ Project not found");
 
       const isMember = project.members.some(
         (id) => id.toString() === senderId.toString()
       );
-
       if (!isMember) {
         console.log(`❌ Sender ${senderId} not part of project ${projectId}`);
         return;
       }
 
-      // Find sender info
+      // Fetch sender details
       const sender = await User.findById(senderId);
       if (!sender) return console.log("❌ Sender not found");
 
-      // Save message
+      // ✅ Create message document
       const newMsg = await Message.create({
         projectId,
         senderId,
-        message,
+        message: message || "",
+        fileUrl: fileUrl || null,
+        fileType: fileType || null,
+        originalName: originalName || null,
       });
 
-      // Populate message object with sender name
+      // ✅ Emit to project room
       const fullMsg = {
         ...newMsg.toObject(),
         senderName: sender.name,
       };
 
-      // Emit message to all members in that project room
       io.to(projectId).emit("receiveMessage", fullMsg);
-      console.log(`💬 [${projectId}] ${sender.name}: ${message}`);
+      console.log(
+        `💬 [${projectId}] ${sender.name}: ${
+          message || `[file uploaded: ${fileType}]`
+        }`
+      );
     } catch (err) {
       console.error("⚠️ Error handling sendMessage:", err.message);
     }
   });
 
-  // Handle user disconnect
+  // Disconnect
   socket.on("disconnect", () => {
     console.log(`❌ User disconnected: ${socket.id}`);
   });
