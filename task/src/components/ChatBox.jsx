@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import socket from "../utils/socket";
 import axios from "../utils/axiosInstance";
 import { format, isToday, isYesterday } from "date-fns";
-import { Paperclip, File as FileIcon } from "lucide-react";
+import { Paperclip, File as FileIcon, Send, Loader2 } from "lucide-react";
 
 const ChatBox = ({ user, project }) => {
   const [messages, setMessages] = useState([]);
@@ -31,7 +31,7 @@ const ChatBox = ({ user, project }) => {
     return format(d, "MMMM d, yyyy");
   };
 
-  // Fetch + socket join
+  // Fetch messages + join socket room
   useEffect(() => {
     if (!project?._id) return;
     if (!socket.connected) socket.connect();
@@ -65,6 +65,7 @@ const ChatBox = ({ user, project }) => {
     return () => socket.off("receiveMessage");
   }, [project]);
 
+  // Auto-scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -110,6 +111,7 @@ const ChatBox = ({ user, project }) => {
     }
   };
 
+  // Render chat messages
   const renderMessages = () => {
     let lastDate = null;
     return messages.map((msg) => {
@@ -127,40 +129,37 @@ const ChatBox = ({ user, project }) => {
         <Fragment key={msg._id}>
           {/* Date Divider */}
           {showDivider && (
-            <div className="flex justify-center items-center my-3">
-              <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-1 rounded-full text-xs shadow-md">
+            <div className="relative flex justify-center items-center my-5">
+              <div className="flex-grow border-t border-gray-300"></div>
+              <span className="relative z-10 bg-white px-3 text-xs font-medium text-gray-600 rounded-full border border-gray-300">
                 {getDateLabel(msg.timestamp)}
               </span>
+              <div className="flex-grow border-t border-gray-300"></div>
             </div>
           )}
 
           {/* Message */}
           <div
-            className={`flex items-start gap-2 mb-4 ${
-              isMine ? "justify-end" : "justify-start"
-            }`}
+            className={`flex items-start gap-3 ${isMine ? "justify-end" : "justify-start"
+              }`}
           >
-            {/* Avatar (top-left aligned) */}
             {!isMine && (
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-semibold text-sm text-gray-700 mt-1">
+              <div className="w-9 h-9 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center font-semibold text-sm text-slate-700 mt-1">
                 {senderInitial}
               </div>
             )}
 
-            {/* Message Bubble */}
             <div
-              className={`max-w-[75%] p-3 shadow-md rounded-lg ${
-                isMine
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-500 text-white rounded-tr-none"
-                  : "bg-white text-gray-800 rounded-tl-none"
-              }`}
+              className={`max-w-[75%] p-3 px-4 shadow-sm rounded-2xl ${isMine
+                  ? "bg-blue-600 text-white rounded-tr-lg shadow-md"
+                  : "bg-white text-gray-800 rounded-tl-lg border border-gray-100"
+                }`}
             >
               <p
-                className={`text-xs font-semibold mb-1 ${
-                  isMine ? "text-gray-200 text-right" : `${senderColor}`
-                }`}
+                className={`text-sm font-semibold mb-1 ${isMine ? "hidden" : `${senderColor}`
+                  }`}
               >
-                {isMine ? "" : msg.senderName}
+                {msg.senderName}
               </p>
 
               {msg.fileUrl ? (
@@ -168,53 +167,59 @@ const ChatBox = ({ user, project }) => {
                   <img
                     src={msg.fileUrl}
                     alt="Shared"
-                    className="rounded-md max-w-xs mb-2 shadow-sm hover:opacity-90 transition"
+                    className="rounded-lg max-w-xs mb-1 shadow-sm hover:opacity-90 transition"
                   />
                 ) : msg.fileType === "video" ? (
                   <video
                     src={msg.fileUrl}
                     controls
-                    className="rounded-md max-w-xs mb-2"
+                    className="rounded-lg max-w-xs mb-1"
                   />
                 ) : (
                   <a
                     href={msg.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm underline hover:text-blue-400"
+                    className={`flex items-center gap-2 text-sm underline rounded-lg p-2 ${isMine ? "hover:bg-blue-700" : "hover:bg-gray-100"
+                      }`}
                   >
-                    <FileIcon size={16} />
-                    {msg.originalName || "Download File"}
+                    <FileIcon size={18} />
+                    <span className="truncate">
+                      {msg.originalName || "Download File"}
+                    </span>
                   </a>
                 )
               ) : (
-                <p className="whitespace-pre-wrap break-words leading-snug">
-                  {msg.message.split(" ").map((word, i) =>
-                    word.startsWith("http") ? (
-                      <a
-                        key={i}
-                        href={word}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`underline ${
-                          isMine ? "text-yellow-200" : "text-blue-600"
-                        }`}
-                      >
-                        {word}
-                      </a>
-                    ) : (
-                      " " + word
+                <p className="whitespace-pre-wrap break-words leading-relaxed text-sm">
+                  {msg.message?.trim()
+                    ? msg.message.trim().split(/\s+/).map((word, i) =>
+                      word.startsWith("http") ? (
+                        <a
+                          key={i}
+                          href={word}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`underline ${isMine
+                              ? "text-blue-200 hover:text-white"
+                              : "text-blue-600 hover:text-blue-800"
+                            }`}
+                        >
+                          {word}
+                        </a>
+                      ) : (
+                        " " + word
+                      )
                     )
-                  )}
+                    : null}
                 </p>
+
               )}
 
               <span
-                className={`text-[10px] block mt-1 opacity-70 ${
-                  isMine
-                    ? "text-right text-gray-200"
+                className={`text-xs block mt-1.5 opacity-70 ${isMine
+                    ? "text-right text-blue-100"
                     : "text-right text-gray-500"
-                }`}
+                  }`}
               >
                 {new Date(msg.timestamp).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -222,9 +227,6 @@ const ChatBox = ({ user, project }) => {
                 })}
               </span>
             </div>
-
-            {/* Avatar space for sender (to align right messages properly) */}
-            {isMine && <div className="w-8"></div>}
           </div>
         </Fragment>
       );
@@ -232,25 +234,25 @@ const ChatBox = ({ user, project }) => {
   };
 
   return (
-    <div className="flex flex-col h-full rounded-lg border shadow-md bg-gradient-to-b from-gray-50 to-gray-100 relative overflow-hidden">
+    <div className="flex flex-col h-full bg-white">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-500 p-4 text-white shadow flex justify-between items-center">
+      <div className="p-4 sm:p-6 border-b border-gray-200 flex justify-between items-center bg-white flex-shrink-0">
         <div>
-          <h2 className="font-semibold text-lg">{project.name}</h2>
-          <p className="text-sm opacity-80">{project.description}</p>
+          <h2 className="font-semibold text-lg text-gray-900">{project.name}</h2>
+          <p className="text-sm text-gray-500 truncate max-w-sm">
+            {project.description}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-xs opacity-80">Active</span>
+          <div className="w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse"></div>
+          <span className="text-xs font-medium text-gray-600">Active</span>
         </div>
       </div>
 
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-gray-50">
         {messages.length === 0 ? (
-          <p className="text-center text-gray-500 mt-20">
-            No messages yet...
-          </p>
+          <p className="text-center text-gray-500 pt-20">No messages yet...</p>
         ) : (
           renderMessages()
         )}
@@ -260,14 +262,19 @@ const ChatBox = ({ user, project }) => {
       {/* Input Box */}
       <form
         onSubmit={handleSendMessage}
-        className="backdrop-blur-md bg-white/90 border-t p-3 flex items-center gap-3 sticky bottom-0"
+        className="bg-white border-t border-gray-200 p-4 sm:p-6 flex items-center gap-3"
       >
         <label
-          className={`cursor-pointer text-gray-600 hover:text-blue-600 ${
-            uploading && "opacity-50 cursor-not-allowed"
-          }`}
+          className={`p-3 rounded-lg transition-colors ${uploading
+              ? "opacity-50 cursor-not-allowed bg-gray-100"
+              : "text-gray-500 hover:text-blue-600 hover:bg-gray-100 cursor-pointer"
+            }`}
         >
-          <Paperclip size={20} />
+          {uploading ? (
+            <Loader2 size={20} className="animate-spin" />
+          ) : (
+            <Paperclip size={20} />
+          )}
           <input
             type="file"
             accept="image/*,video/*,.pdf,.doc,.docx,.zip"
@@ -285,19 +292,16 @@ const ChatBox = ({ user, project }) => {
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           disabled={uploading}
-          className="flex-1 border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-gray-50"
+          className="flex-1 w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors disabled:bg-gray-100"
         />
 
         <button
           type="submit"
-          disabled={uploading}
-          className={`px-4 py-2 rounded-md text-white font-medium shadow-md transition ${
-            uploading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
-          }`}
+          disabled={uploading || !newMessage.trim()}
+          className="flex-shrink-0 flex justify-center items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"
         >
-          {uploading ? "..." : "Send"}
+          <Send size={18} />
+          <span className="hidden sm:inline">Send</span>
         </button>
       </form>
     </div>

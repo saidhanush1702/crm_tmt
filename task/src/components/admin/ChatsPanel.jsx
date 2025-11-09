@@ -26,7 +26,7 @@ export default function ChatsPanel({ user }) {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl shadow-lg border overflow-hidden h-[80vh] max-h-[80vh]">
+    <div className="flex flex-col lg:flex-row bg-linear-to-b from-gray-50 to-gray-100 rounded-2xl shadow-lg border overflow-hidden h-[80vh] max-h-[80vh]">
       {/* Sidebar */}
       <div className="lg:w-1/3 xl:w-1/4 bg-white border-r p-4 overflow-y-auto">
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
