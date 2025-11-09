@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import socket from "../utils/socket";
 import axios from "../utils/axiosInstance";
 import { format, isToday, isYesterday } from "date-fns";
-import { Paperclip, Image as ImageIcon, File as FileIcon } from "lucide-react";
+import { Paperclip, File as FileIcon } from "lucide-react";
 
 const ChatBox = ({ user, project }) => {
   const [messages, setMessages] = useState([]);
@@ -10,7 +10,20 @@ const ChatBox = ({ user, project }) => {
   const [uploading, setUploading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // ✅ Helper for formatted date labels
+  // Generate consistent color for sender
+  const getUserColor = (name) => {
+    const colors = [
+      "text-blue-600",
+      "text-green-600",
+      "text-purple-600",
+      "text-pink-600",
+      "text-indigo-600",
+      "text-orange-600",
+    ];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
+
   const getDateLabel = (date) => {
     const d = new Date(date);
     if (isToday(d)) return "Today";
@@ -18,10 +31,9 @@ const ChatBox = ({ user, project }) => {
     return format(d, "MMMM d, yyyy");
   };
 
-  // ✅ Fetch + socket join + real-time listener
+  // Fetch + socket join
   useEffect(() => {
     if (!project?._id) return;
-
     if (!socket.connected) socket.connect();
 
     const fetchMessages = async () => {
@@ -53,12 +65,10 @@ const ChatBox = ({ user, project }) => {
     return () => socket.off("receiveMessage");
   }, [project]);
 
-  // ✅ Auto-scroll on new message
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ✅ Send text message
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
@@ -68,12 +78,10 @@ const ChatBox = ({ user, project }) => {
       senderId: user._id || user.id,
       message: newMessage.trim(),
     };
-
     socket.emit("sendMessage", msgData);
     setNewMessage("");
   };
 
-  // ✅ Handle file uploads to Cloudinary
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -86,9 +94,7 @@ const ChatBox = ({ user, project }) => {
       const res = await axios.post("/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
       const { fileUrl, fileType, originalName } = res.data;
-
       socket.emit("sendMessage", {
         projectId: project._id,
         senderId: user._id || user.id,
@@ -104,10 +110,8 @@ const ChatBox = ({ user, project }) => {
     }
   };
 
-  // ✅ Message bubble UI with date dividers
   const renderMessages = () => {
     let lastDate = null;
-
     return messages.map((msg) => {
       const currentDate = new Date(msg.timestamp).toDateString();
       const showDivider = currentDate !== lastDate;
@@ -115,93 +119,112 @@ const ChatBox = ({ user, project }) => {
 
       const isMine =
         msg.senderId?.toString() === (user._id || user.id)?.toString();
+      const senderColor = getUserColor(msg.senderName || "U");
+      const senderInitial =
+        msg.senderName?.charAt(0).toUpperCase() || "U";
 
       return (
         <Fragment key={msg._id}>
-          {/* 🔸 Date divider */}
+          {/* Date Divider */}
           {showDivider && (
             <div className="flex justify-center items-center my-3">
-              <span className="bg-gray-300 text-gray-800 px-4 py-1 rounded-full text-sm font-medium shadow-sm">
+              <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-1 rounded-full text-xs shadow-md">
                 {getDateLabel(msg.timestamp)}
               </span>
             </div>
           )}
 
-          {/* 🔹 Message bubble */}
+          {/* Message */}
           <div
-            className={`p-2 rounded-md max-w-xl ${
-              isMine
-                ? "bg-blue-600 text-white ml-auto"
-                : "bg-gray-200 text-gray-900"
+            className={`flex items-start gap-2 mb-4 ${
+              isMine ? "justify-end" : "justify-start"
             }`}
           >
-            {/* Sender Name */}
-            <p
-              className={`text-xs font-semibold mb-1 ${
-                isMine ? "text-gray-100 text-left" : "text-blue-700 text-left"
-              }`}
-            >
-              {msg.senderName || (isMine ? "You" : "Unknown")}
-            </p>
-
-            {/* Message Content */}
-            {msg.fileUrl ? (
-              msg.fileType === "image" ? (
-                <img
-                  src={msg.fileUrl}
-                  alt="Shared"
-                  className="rounded-lg max-w-xs mb-2"
-                />
-              ) : msg.fileType === "video" ? (
-                <video
-                  src={msg.fileUrl}
-                  controls
-                  className="rounded-lg max-w-xs mb-2"
-                />
-              ) : (
-                <a
-                  href={msg.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 underline text-sm"
-                >
-                  <FileIcon size={16} />
-                  {msg.originalName || "Download File"}
-                </a>
-              )
-            ) : (
-              <p className="whitespace-pre-wrap leading-snug break-words">
-                {msg.message.split(" ").map((word, i) =>
-                  word.startsWith("http") ? (
-                    <a
-                      key={i}
-                      href={word}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`underline ${
-                        isMine ? "text-yellow-200" : "text-blue-600"
-                      }`}
-                    >
-                      {word}
-                    </a>
-                  ) : (
-                    " " + word
-                  )
-                )}
-              </p>
+            {/* Avatar (top-left aligned) */}
+            {!isMine && (
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-semibold text-sm text-gray-700 mt-1">
+                {senderInitial}
+              </div>
             )}
 
-            {/* Timestamp */}
-            <span
-              className={`text-xs block mt-1 opacity-70 ${
-                isMine ? "text-right" : "text-right"
+            {/* Message Bubble */}
+            <div
+              className={`max-w-[75%] p-3 shadow-md rounded-lg ${
+                isMine
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-500 text-white rounded-tr-none"
+                  : "bg-white text-gray-800 rounded-tl-none"
               }`}
             >
-              {new Date(msg.timestamp).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
+              <p
+                className={`text-xs font-semibold mb-1 ${
+                  isMine ? "text-gray-200 text-right" : `${senderColor}`
+                }`}
+              >
+                {isMine ? "You" : msg.senderName}
+              </p>
+
+              {msg.fileUrl ? (
+                msg.fileType === "image" ? (
+                  <img
+                    src={msg.fileUrl}
+                    alt="Shared"
+                    className="rounded-md max-w-xs mb-2 shadow-sm hover:opacity-90 transition"
+                  />
+                ) : msg.fileType === "video" ? (
+                  <video
+                    src={msg.fileUrl}
+                    controls
+                    className="rounded-md max-w-xs mb-2"
+                  />
+                ) : (
+                  <a
+                    href={msg.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm underline hover:text-blue-400"
+                  >
+                    <FileIcon size={16} />
+                    {msg.originalName || "Download File"}
+                  </a>
+                )
+              ) : (
+                <p className="whitespace-pre-wrap break-words leading-snug">
+                  {msg.message.split(" ").map((word, i) =>
+                    word.startsWith("http") ? (
+                      <a
+                        key={i}
+                        href={word}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`underline ${
+                          isMine ? "text-yellow-200" : "text-blue-600"
+                        }`}
+                      >
+                        {word}
+                      </a>
+                    ) : (
+                      " " + word
+                    )
+                  )}
+                </p>
+              )}
+
+              <span
+                className={`text-[10px] block mt-1 opacity-70 ${
+                  isMine
+                    ? "text-right text-gray-200"
+                    : "text-right text-gray-500"
+                }`}
+              >
+                {new Date(msg.timestamp).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+
+            {/* Avatar space for sender (to align right messages properly) */}
+            {isMine && <div className="w-8"></div>}
           </div>
         </Fragment>
       );
@@ -209,17 +232,25 @@ const ChatBox = ({ user, project }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 rounded-lg border shadow-sm">
+    <div className="flex flex-col h-full rounded-lg border shadow-md bg-gradient-to-b from-gray-50 to-gray-100 relative overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b p-3 shadow-sm">
-        <h2 className="font-bold text-lg text-gray-800">{project.name}</h2>
-        <p className="text-sm text-gray-600">{project.description}</p>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-500 p-4 text-white shadow flex justify-between items-center">
+        <div>
+          <h2 className="font-semibold text-lg">{project.name}</h2>
+          <p className="text-sm opacity-80">{project.description}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+          <span className="text-xs opacity-80">Active</span>
+        </div>
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
         {messages.length === 0 ? (
-          <p className="text-center text-gray-500 mt-20">No messages yet...</p>
+          <p className="text-center text-gray-500 mt-20">
+            No messages yet...
+          </p>
         ) : (
           renderMessages()
         )}
@@ -229,20 +260,23 @@ const ChatBox = ({ user, project }) => {
       {/* Input Box */}
       <form
         onSubmit={handleSendMessage}
-        className="bg-white border-t p-3 flex items-center gap-2 sticky bottom-0"
+        className="backdrop-blur-md bg-white/90 border-t p-3 flex items-center gap-3 sticky bottom-0"
       >
-        {/* File Upload Button */}
-        <label className="cursor-pointer text-gray-600 hover:text-blue-600">
+        <label
+          className={`cursor-pointer text-gray-600 hover:text-blue-600 ${
+            uploading && "opacity-50 cursor-not-allowed"
+          }`}
+        >
           <Paperclip size={20} />
           <input
             type="file"
             accept="image/*,video/*,.pdf,.doc,.docx,.zip"
             className="hidden"
             onChange={handleFileUpload}
+            disabled={uploading}
           />
         </label>
 
-        {/* Input Field */}
         <input
           type="text"
           placeholder={
@@ -251,18 +285,17 @@ const ChatBox = ({ user, project }) => {
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           disabled={uploading}
-          className="flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-gray-50"
         />
 
-        {/* Send Button */}
         <button
           type="submit"
           disabled={uploading}
-          className={`${
+          className={`px-4 py-2 rounded-md text-white font-medium shadow-md transition ${
             uploading
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
-          } text-white px-4 py-2 rounded-md transition`}
+          }`}
         >
           {uploading ? "..." : "Send"}
         </button>

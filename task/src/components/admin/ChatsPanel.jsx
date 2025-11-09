@@ -26,32 +26,55 @@ export default function ChatsPanel({ user }) {
   };
 
   return (
-    <div className="flex h-[70vh] bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="flex flex-col lg:flex-row bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl shadow-lg border overflow-hidden h-[80vh] max-h-[80vh]">
       {/* Sidebar */}
-      <div className="w-1/4 border-r p-4 overflow-y-auto">
-        <h4 className="font-semibold mb-3">Projects</h4>
-        {projects.map((p) => (
-          <div
-            key={p._id}
-            className={`mb-2 cursor-pointer ${
-              selectedProject?._id === p._id
-                ? "ring-2 ring-blue-500 rounded"
-                : "hover:bg-gray-50"
-            }`}
-            onClick={() => handleSelectProject(p)}
-          >
-            <ProjectCard project={p} />
+      <div className="lg:w-1/3 xl:w-1/4 bg-white border-r p-4 overflow-y-auto">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
+          Projects
+          <span className="text-sm text-gray-500 font-normal">
+            {projects.length}
+          </span>
+        </h3>
+
+        {projects.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center mt-10">
+            No projects available
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {projects.map((p) => (
+              <div
+                key={p._id}
+                className={`transition-transform ${
+                  selectedProject?._id === p._id
+                    ? "scale-[1.02]"
+                    : "hover:scale-[1.01]"
+                }`}
+                onClick={() => handleSelectProject(p)}
+              >
+                <ProjectCard
+                  project={p}
+                  onClick={handleSelectProject}
+                  unread={false}
+                />
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 bg-white p-4 rounded-tr-2xl rounded-br-2xl flex flex-col shadow-inner">
         {selectedProject ? (
           <ChatBox user={user} project={selectedProject} />
         ) : (
-          <div className="h-full flex items-center justify-center text-gray-500">
-            Select a project to chat
+          <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
+            <img
+              src="https://cdn-icons-png.flaticon.com/512/4712/4712105.png"
+              alt="Chat illustration"
+              className="w-24 h-24 mb-4 opacity-60"
+            />
+            <p className="text-base">Select a project to start chatting</p>
           </div>
         )}
       </div>
