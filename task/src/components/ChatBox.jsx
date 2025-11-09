@@ -160,7 +160,7 @@ const ChatBox = ({ user, project }) => {
                   isMine ? "text-gray-200 text-right" : `${senderColor}`
                 }`}
               >
-                {isMine ? "You" : msg.senderName}
+                {isMine ? "" : msg.senderName}
               </p>
 
               {msg.fileUrl ? (
