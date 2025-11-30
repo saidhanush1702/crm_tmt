@@ -6,36 +6,44 @@ import cloudinary from "../config/cloudinary.js";
 const router = express.Router();
 
 /* -------------------------------------------------------------------------- */
-/* 🧠 1️⃣ Configure Cloudinary Storage (auto-detects images, videos, files) */
+/* 🧠 FIXED STORAGE LOGIC — PDFs MUST USE resource_type: "raw" */
 /* -------------------------------------------------------------------------- */
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
-    // Extract extension safely
-    const ext = file.originalname.split(".").pop();
+    const ext = file.originalname.split(".").pop().toLowerCase();
+
+    // Detect file type manually
+    const mime = file.mimetype;
+
+    let resourceType = "auto";
+
+    if (mime === "application/pdf") {
+      resourceType = "raw"; // 🔥 FIX: PDFs must be uploaded as RAW
+    } else if (mime.startsWith("image")) {
+      resourceType = "image";
+    } else if (mime.startsWith("video")) {
+      resourceType = "video";
+    } else {
+      resourceType = "raw"; // other files (.py, .txt etc)
+    }
 
     return {
       folder: "task-manager-chat",
-      resource_type: "auto", // allows any file (image, video, pdf, etc.)
+      resource_type: resourceType,
       public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, "")}`,
-      format: ext, // helps Cloudinary preserve correct file type
+      format: ext,
     };
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 }, // ✅ limit file size to 100MB
-  fileFilter: (req, file, cb) => {
-    if (!file.originalname) {
-      return cb(new Error("File must have a name"));
-    }
-    cb(null, true);
-  },
+  limits: { fileSize: 100 * 1024 * 1024 },
 });
 
 /* -------------------------------------------------------------------------- */
-/* 🧱 2️⃣ File Upload Endpoint */
+/* 🧱 Upload Route */
 /* -------------------------------------------------------------------------- */
 router.post("/", upload.single("file"), async (req, res) => {
   try {
@@ -43,46 +51,29 @@ router.post("/", upload.single("file"), async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // ✅ Log Cloudinary response for debugging
-    console.log("✅ File uploaded:", req.file);
-
-    const fileUrl = req.file.path;
-    const mime = req.file.mimetype || "";
-
-    const fileType = mime.startsWith("image")
-      ? "image"
-      : mime.startsWith("video")
-      ? "video"
-      : "file";
+    console.log("Uploaded File →", req.file);
 
     res.status(200).json({
       success: true,
-      fileUrl,
-      fileType,
+      fileUrl: req.file.path,         // Correct URL for PDF now
+      mime: req.file.mimetype,
       originalName: req.file.originalname,
     });
   } catch (err) {
-    console.error("❌ Cloudinary upload error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Upload failed",
-      error: err.message || err,
-    });
+    console.error("Upload Error →", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 /* -------------------------------------------------------------------------- */
-/* 🧩 3️⃣ Optional Test Route — checks Cloudinary connectivity */
+/* 🧪 Test Route */
 /* -------------------------------------------------------------------------- */
 router.get("/test", async (req, res) => {
   try {
     const result = await cloudinary.api.ping();
-    res.json({ success: true, message: "Cloudinary connected ✅", result });
+    res.json({ success: true, message: "Cloudinary connected", result });
   } catch (err) {
-    console.error("❌ Cloudinary test failed:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Cloudinary not connected", error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

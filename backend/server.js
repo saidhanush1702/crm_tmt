@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/db.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import inboxRoutes from "./routes/inboxRoutes.js";
+
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
@@ -41,6 +43,8 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/upload", uploadRoutes); // for file uploads
+app.use("/api/intern-apply", inboxRoutes);
+
 
 // Root route
 app.get("/", (req, res) => {

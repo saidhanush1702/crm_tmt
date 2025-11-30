@@ -4,6 +4,9 @@ import { AuthContext } from "../context/AuthContext"; // ✅ use your real auth 
 import InternsPanel from "../components/admin/InternsPanel.jsx";
 import ProjectsPanel from "../components/admin/ProjectsPanel.jsx";
 import ChatsPanel from "../components/admin/ChatsPanel.jsx";
+import InboxPanel from "../components/admin/InboxPanel.jsx";
+import { Mail } from "lucide-react";
+
 
 
 
@@ -49,6 +52,7 @@ export default function AdminDashboard() {
     { id: "interns", label: "Interns", icon: Users },
     { id: "projects", label: "Projects", icon: FolderKanban },
     { id: "chats", label: "Chats", icon: MessageSquare },
+    { id: "inbox", label: "Inbox", icon: Mail }, 
   ];
 
   const getTabTitle = () =>
@@ -145,6 +149,8 @@ export default function AdminDashboard() {
           {activeTab === "interns" && <InternsPanel />}
           {activeTab === "projects" && <ProjectsPanel />}
           {activeTab === "chats" && <ChatsPanel user={user} />}
+          {activeTab === "inbox" && <InboxPanel />}
+
         </main>
       </div>
     </div>
