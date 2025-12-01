@@ -2,7 +2,7 @@ import express from "express";
 import {
   getAllApplications,
   deleteApplication,
-  markAsRead,
+  moveForward,
 } from "../controllers/inboxController.js";
 
 const router = express.Router();
@@ -13,7 +13,7 @@ router.get("/all", getAllApplications);
 // @route DELETE /api/intern-apply/:id
 router.delete("/:id", deleteApplication);
 
-// @route PATCH /api/intern-apply/read/:id
-router.patch("/read/:id", markAsRead);
+// @route PATCH /api/intern-apply/forward/:id
+router.patch("/forward/:id", moveForward);
 
 export default router;

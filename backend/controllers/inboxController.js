@@ -6,26 +6,43 @@ export const getAllApplications = async (req, res) => {
     const items = await InternshipApplication.find().sort({ createdAt: -1 });
     res.json({ success: true, items });
   } catch (err) {
-    res.status(500).json({ success: false, error: "Failed to fetch applications" });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to fetch applications" });
   }
 };
 
-// @desc Delete application
+// @desc Delete application (Not Suitable)
 export const deleteApplication = async (req, res) => {
   try {
     await InternshipApplication.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ success: false, error: "Failed to delete application" });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to delete application" });
   }
 };
 
-// @desc Mark as read
-export const markAsRead = async (req, res) => {
+// @desc Move Forward (Selected)
+export const moveForward = async (req, res) => {
   try {
-    await InternshipApplication.findByIdAndUpdate(req.params.id, { read: true });
-    res.json({ success: true });
+    const updated = await InternshipApplication.findByIdAndUpdate(
+      req.params.id,
+      { movedForward: true },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Application not found" });
+    }
+
+    res.json({ success: true, item: updated });
   } catch (err) {
-    res.status(500).json({ success: false, error: "Failed to update application" });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to update application" });
   }
 };

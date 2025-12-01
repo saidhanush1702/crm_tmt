@@ -11,7 +11,8 @@ const InternshipApplicationSchema = new mongoose.Schema(
     role: String,
     about: String,
     resumeUrl: String,
-    read: { type: Boolean, default: false }
+    movedForward: { type: Boolean, default: false }
+
   },
   {
     timestamps: true,
